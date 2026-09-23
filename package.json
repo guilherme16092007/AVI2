@@ -1,0 +1,32 @@
+{
+  "name": "greencode",
+  "version": "1.0.0",
+  "description": "Sistema de linha de comando (CLI) para gestao de logistica reversa de residuos eletroeletronicos - Atividade de Avaliacao Individual 1",
+  "main": "dist/index.js",
+  "bin": {
+    "greencode": "dist/index.js"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/index.js",
+    "dev": "tsx src/index.ts",
+    "clean": "node -e \"require('fs').rmSync('dist',{recursive:true,force:true});require('fs').rmSync('data',{recursive:true,force:true});require('fs').rmSync('.greencode',{recursive:true,force:true})\"",
+    "test": "tsx tests/journey.test.ts"
+  },
+  "keywords": [
+    "cli",
+    "typescript",
+    "logistica-reversa",
+    "residuos-eletronicos",
+    "greencode"
+  ],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "typescript": "^5.4.0"
+  }
+}

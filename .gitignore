@@ -1,0 +1,28 @@
+# Dependencias
+node_modules/
+
+# Build
+dist/
+tests-dist/
+*.tsbuildinfo
+
+# Dados sensiveis e gerados em runtime (NUNCA versionar)
+data/
+.greencode/
+*.key
+*.enc
+*.log
+!docs/**/*.log
+
+# Ambiente
+.env
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/
+*.swp
+
+# Logs npm
+npm-debug.log*
