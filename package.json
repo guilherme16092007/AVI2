@@ -1,23 +1,40 @@
 {
   "name": "greencode",
-  "version": "1.0.0",
-  "description": "Sistema de linha de comando (CLI) para gestao de logistica reversa de residuos eletroeletronicos - Atividade de Avaliacao Individual 1",
+  "version": "2.0.0",
+  "description": "Plataforma de logistica reversa de residuos eletroeletronicos: AV1 (CLI com persistencia em arquivos cifrados) e AV2 (API REST monolitica com Fastify, Prisma e PostgreSQL)",
   "main": "dist/index.js",
   "bin": {
     "greencode": "dist/index.js"
   },
   "engines": {
-    "node": ">=18.0.0"
+    "node": ">=18.18.0"
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "start": "node dist/index.js",
     "dev": "tsx src/index.ts",
     "clean": "node -e \"require('fs').rmSync('dist',{recursive:true,force:true});require('fs').rmSync('data',{recursive:true,force:true});require('fs').rmSync('.greencode',{recursive:true,force:true})\"",
-    "test": "tsx tests/journey.test.ts"
+    "test": "npm run test:av1 && npm run test:av2",
+    "test:av1": "tsx tests/journey.test.ts",
+    "test:av2": "tsx tests/server/servicos.test.ts && tsx tests/server/utilitarios.test.ts",
+    "test:http": "tsx tests/server/http.test.ts",
+    "build:server": "prisma generate && tsc -p tsconfig.server.json",
+    "start:server": "node dist/server/server.js",
+    "dev:server": "tsx watch src/server/server.ts",
+    "prisma:generate": "prisma generate",
+    "prisma:migrate": "prisma migrate deploy",
+    "prisma:migrate:dev": "prisma migrate dev",
+    "db:seed": "prisma db seed"
+  },
+  "prisma": {
+    "seed": "tsx prisma/seed.ts"
   },
   "keywords": [
     "cli",
+    "api-rest",
+    "fastify",
+    "prisma",
+    "postgresql",
     "typescript",
     "logistica-reversa",
     "residuos-eletronicos",
@@ -25,8 +42,16 @@
   ],
   "author": "",
   "license": "MIT",
+  "dependencies": {
+    "@fastify/jwt": "^8.0.1",
+    "@prisma/client": "^6.0.0",
+    "dotenv": "^16.4.5",
+    "fastify": "^4.28.1"
+  },
   "devDependencies": {
     "@types/node": "^20.0.0",
+    "prisma": "^6.0.0",
+    "tsx": "^4.19.0",
     "typescript": "^5.4.0"
   }
 }

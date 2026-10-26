@@ -1,5 +1,120 @@
 # greencode
 
+Plataforma de logística reversa de resíduos eletroeletrônicos. Conecta organizações geradoras de e-lixo (varejo, hospitais, universidades, bancos, indústrias) à cadeia de triagem, desmonte e recuperação de materiais, com rastreabilidade completa de cada equipamento.
+
+> Atividades de Avaliação Individual — Prof. Eng. Dr. Gerson Penha. Node.js + TypeScript.
+
+## Atividades neste repositório
+
+| Atividade | O que é | Persistência | Como executar | Documentação |
+|---|---|---|---|---|
+| **AV1** | Sistema de linha de comando (CLI) | Arquivos de texto cifrados (AES-256) + journal | [Seção AV1](#av1--cli-com-persistência-em-arquivos-cifrados) | [docs/ARQUITETURA.md](docs/ARQUITETURA.md), [docs/SEGURANCA.md](docs/SEGURANCA.md) |
+| **AV2** | Servidor HTTP monolítico com API REST | PostgreSQL via Prisma ORM | [Seção AV2](#av2--api-rest-fastify--prisma--postgresql) | [docs/AV2_ARQUITETURA.md](docs/AV2_ARQUITETURA.md), [docs/API.md](docs/API.md), [docs/AV2_BANCO_DE_DADOS.md](docs/AV2_BANCO_DE_DADOS.md), [docs/AV2_TESTES.md](docs/AV2_TESTES.md) |
+
+A AV2 **evolui** a AV1 sem descartá-la: o CLI continua funcionando, e a API reutiliza o domínio orientado a objetos, os validadores de negócio, o hash de senhas e os tipos da AV1 (ver [docs/AV2_ARQUITETURA.md](docs/AV2_ARQUITETURA.md)).
+
+---
+
+# AV2 — API REST (Fastify + Prisma + PostgreSQL)
+
+Servidor monolítico em camadas **Controller → Service → Repository**, com autenticação JWT, controle de acesso por papel, transações, controle de concorrência otimista, migrações versionadas e seed.
+
+## Requisitos
+
+- **Node.js 18.18 ou superior** (recomendado: a versão LTS atual).
+- **PostgreSQL 14 ou superior** — instalado localmente **ou** via Docker (`docker-compose.yml` incluso).
+- Windows 10+ ou Ubuntu 24.04+ (e derivadas).
+
+## Como executar
+
+```bash
+# 1. Dependências
+npm install
+
+# 2. Configuração: copie o exemplo e troque o JWT_SECRET por um valor aleatório (mín. 32 caracteres)
+#    gerar: node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"
+cp .env.example .env            # Windows (cmd): copy .env.example .env
+
+# 3. Banco de dados PostgreSQL (opção Docker; ou use um PostgreSQL local e ajuste DATABASE_URL)
+docker compose up -d
+
+# 4. Tabelas, constraints e trigger (migrações versionadas) + massa de dados de exemplo
+npx prisma migrate deploy
+npm run db:seed
+
+# 5. Compilar e iniciar
+npm run build:server
+npm run start:server            # ou, em desenvolvimento: npm run dev:server
+```
+
+O servidor sobe em `http://127.0.0.1:3000` (porta configurável por `PORT`). Teste: `GET /saude`.
+
+O seed cria quatro usuários de **desenvolvimento** (um por papel): `admin / Admin@12345`, `operador / Operador@123`, `gestor / Gestor@1234` e `auditor / Auditor@123`.
+
+### Primeira chamada (login + consulta)
+
+PowerShell (Windows):
+
+```powershell
+$r = Invoke-RestMethod -Method Post -Uri http://127.0.0.1:3000/auth/login -ContentType "application/json" -Body '{"username":"admin","senha":"Admin@12345"}'
+$h = @{ Authorization = "Bearer $($r.token)" }
+Invoke-RestMethod -Uri http://127.0.0.1:3000/organizacoes -Headers $h
+```
+
+curl (Linux / Git Bash):
+
+```bash
+TOKEN=$(curl -s -X POST http://127.0.0.1:3000/auth/login -H "Content-Type: application/json" \
+  -d '{"username":"admin","senha":"Admin@12345"}' | node -pe "JSON.parse(require('fs').readFileSync(0)).token")
+curl -s http://127.0.0.1:3000/organizacoes -H "Authorization: Bearer $TOKEN"
+```
+
+Todos os endpoints, corpos, códigos de status e exemplos estão em **[docs/API.md](docs/API.md)**.
+
+## Scripts
+
+| Script | Função |
+|---|---|
+| `npm run build:server` | Gera o Prisma Client e compila a API (`tsconfig.server.json`). |
+| `npm run start:server` | Inicia a API compilada (`dist/server/server.js`). |
+| `npm run dev:server` | Inicia a API em modo desenvolvimento, com recarga automática (`tsx watch`). |
+| `npm run prisma:migrate` | Aplica as migrações versionadas (`prisma migrate deploy`). |
+| `npm run db:seed` | Popula o banco (idempotente; `SEED_RESET=1` apaga tudo e recria). |
+| `npm test` | Testes da AV1 **e** da AV2 (sem banco de dados). |
+| `npm run test:http` | Testa as rotas HTTP (app Fastify real + repositórios em memória). |
+
+## Variáveis de ambiente
+
+| Variável | Obrigatória | Padrão | Descrição |
+|---|---|---|---|
+| `DATABASE_URL` | sim | — | String de conexão PostgreSQL. |
+| `JWT_SECRET` | sim | — | Segredo de assinatura dos tokens (mínimo 32 caracteres). |
+| `PORT` | não | `3000` | Porta do servidor. |
+| `HOST` | não | `127.0.0.1` | Interface de escuta (`0.0.0.0` para expor na rede/contêiner). |
+| `JWT_EXPIRES_IN` | não | `30m` | Validade do token. |
+| `LOG_LEVEL` | não | `info` | Nível de log (`fatal`…`trace`, `silent`). |
+| `SHUTDOWN_TIMEOUT_MS` | não | `10000` | Tempo máximo do encerramento gracioso. |
+
+## Arquitetura em uma imagem
+
+```
+HTTP ──► Controllers (Fastify: rotas, JSON Schema, hook JWT)
+            │  extrai o "ator" (id + papel) do token
+            ▼
+         Services (regras de negócio, autorização por papel, transações)
+            │  reutilizam validadores e domínio da AV1
+            ▼
+         Repositories (interfaces) ──► Prisma Client ──► PostgreSQL
+```
+
+Detalhes, decisões e alternativas rejeitadas: **[docs/AV2_ARQUITETURA.md](docs/AV2_ARQUITETURA.md)**. Modelo de dados, constraints e migrações: **[docs/AV2_BANCO_DE_DADOS.md](docs/AV2_BANCO_DE_DADOS.md)**. O que foi (e o que não foi) verificado: **[docs/AV2_TESTES.md](docs/AV2_TESTES.md)**.
+
+---
+
+# AV1 — CLI com persistência em arquivos cifrados
+
+(Conteúdo original da AV1, preservado.)
+
 Sistema de linha de comando (CLI) para gestão de logística reversa de resíduos eletroeletrônicos — núcleo operacional de uma plataforma que conecta organizações geradoras de e-lixo (varejo, hospitais, universidades, bancos, indústrias) a operadores logísticos e ao mercado de recuperação de materiais.
 
 > Atividade de Avaliação Individual 1 — Prof. Eng. Dr. Gerson Penha.
@@ -7,7 +122,7 @@ Sistema de linha de comando (CLI) para gestão de logística reversa de resíduo
 
 ---
 
-## Sumário
+## Sumário (AV1)
 
 - [Visão geral](#visão-geral)
 - [Principais características](#principais-características)
@@ -214,7 +329,7 @@ Justificativa detalhada de cada escolha (AES-256-GCM, PBKDF2-HMAC-SHA256, journa
 ## Testes
 
 ```bash
-npm test
+npm run test:av1
 ```
 
 Executa `tests/journey.test.ts`: 40 verificações automatizadas cobrindo provisionamento, autenticação, controle de acesso por papel, validação de CNPJ, janela de datas de lote, máquina de estados do equipamento, regra de justificativa, rastreabilidade, journal e criptografia em disco. Detalhes em **[docs/TESTES.md](docs/TESTES.md)**.
@@ -232,8 +347,8 @@ O sistema não utiliza chamadas de sistema específicas de plataforma; toda a pe
 
 Conforme mencionado na proposta original do negócio, as próximas atividades do projeto incluem:
 
-- Integração com uma interface web (dashboard de organizações, lotes e equipamentos).
-- Migração da persistência em arquivo para um banco de dados relacional.
+- Interface web SPA (dashboard de organizações, lotes e equipamentos) consumindo a API entregue na AV2.
+- ~~Migração da persistência em arquivo para um banco de dados relacional.~~ **Entregue na AV2** (PostgreSQL + Prisma).
 - Emissão de certificados de compensação ambiental e relatórios de consultoria a partir dos dados de rastreabilidade acumulados.
 - Evolução do armazenamento da chave mestra para um cofre de segredos dedicado (ver [docs/SEGURANCA.md](docs/SEGURANCA.md)).
 

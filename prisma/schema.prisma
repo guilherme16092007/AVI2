@@ -1,0 +1,171 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Papel {
+  ADMINISTRADOR
+  OPERADOR_CADASTRO
+  GESTOR_ALMOXARIFADO
+  AUDITOR
+}
+
+enum TipoOrganizacao {
+  VAREJO
+  HOSPITAL
+  UNIVERSIDADE
+  BANCO
+  INDUSTRIA
+  OUTRO
+}
+
+enum StatusLote {
+  RECEBIDO
+  EM_TRIAGEM
+  TRIADO
+  ENCERRADO
+}
+
+enum TipoEquipamento {
+  DESKTOP
+  NOTEBOOK
+  SERVIDOR
+  MONITOR
+  PERIFERICO
+  NOBREAK
+}
+
+enum StatusEquipamento {
+  AGUARDANDO_TRIAGEM
+  TRIADO
+  EM_DESMONTE
+  RECICLADO
+  DESCARTADO
+}
+
+enum TipoMovimentacao {
+  CADASTRO
+  TRIAGEM
+  MUDANCA_ESTADO
+  MUDANCA_STATUS
+  DESMONTE
+  FINALIZACAO
+}
+
+model Usuario {
+  id            String    @id @default(uuid()) @db.Uuid
+  username      String    @unique
+  papel         Papel
+  senhaHash     String
+  ativo         Boolean   @default(true)
+  ultimoLoginEm DateTime?
+  criadoEm      DateTime  @default(now())
+  atualizadoEm  DateTime  @updatedAt
+  versao        Int       @default(1)
+
+  movimentacoes Movimentacao[]
+}
+
+model Organizacao {
+  id                     String          @id @default(uuid()) @db.Uuid
+  cnpj                   String          @unique @db.VarChar(14)
+  razaoSocial            String
+  nomeFantasia           String?
+  tipo                   TipoOrganizacao
+  contatoResponsavel     String
+  emailContato           String
+  diasPrazoArmazenamento Int             @default(30)
+  ativo                  Boolean         @default(true)
+  criadoEm               DateTime        @default(now())
+  atualizadoEm           DateTime        @updatedAt
+  versao                 Int             @default(1)
+
+  contrato Contrato?
+  lotes    Lote[]
+}
+
+model Contrato {
+  id             String   @id @default(uuid()) @db.Uuid
+  organizacaoId  String   @unique @db.Uuid
+  numero         String   @unique
+  dataInicio     DateTime @db.Date
+  dataFim        DateTime @db.Date
+  clausulas      Json     @default("{}")
+  criadoEm       DateTime @default(now())
+  atualizadoEm   DateTime @updatedAt
+  versao         Int      @default(1)
+
+  organizacao Organizacao @relation(fields: [organizacaoId], references: [id])
+}
+
+model Lote {
+  id             String     @id @default(uuid()) @db.Uuid
+  organizacaoId  String     @db.Uuid
+  dataEntrada    DateTime   @db.Date
+  notaFiscal     String
+  transportadora String
+  status         StatusLote @default(RECEBIDO)
+  criadoEm       DateTime   @default(now())
+  atualizadoEm   DateTime   @updatedAt
+  versao         Int        @default(1)
+
+  organizacao  Organizacao   @relation(fields: [organizacaoId], references: [id])
+  equipamentos Equipamento[]
+
+  @@index([organizacaoId])
+}
+
+model Equipamento {
+  id                  String            @id @default(uuid()) @db.Uuid
+  loteId              String            @db.Uuid
+  tipo                TipoEquipamento
+  numeroSerie         String
+  fabricante          String?
+  modelo              String?
+  codigoBarrasInterno String            @unique
+  estadoFisico        Int               @default(3)
+  status              StatusEquipamento @default(AGUARDANDO_TRIAGEM)
+  criadoEm            DateTime          @default(now())
+  atualizadoEm        DateTime          @updatedAt
+  versao              Int               @default(1)
+
+  lote          Lote           @relation(fields: [loteId], references: [id])
+  movimentacoes Movimentacao[]
+
+  @@index([loteId])
+  @@index([status])
+}
+
+model Movimentacao {
+  id                   String             @id @default(uuid()) @db.Uuid
+  equipamentoId        String             @db.Uuid
+  usuarioId            String             @db.Uuid
+  tipo                 TipoMovimentacao
+  estadoFisicoAnterior Int?
+  estadoFisicoNovo     Int?
+  statusAnterior       StatusEquipamento?
+  statusNovo           StatusEquipamento?
+  justificativa        String?
+  observacao           String?
+  criadoEm             DateTime           @default(now())
+  versao               Int                @default(1)
+
+  equipamento Equipamento @relation(fields: [equipamentoId], references: [id])
+  usuario     Usuario     @relation(fields: [usuarioId], references: [id])
+
+  @@index([equipamentoId, criadoEm])
+  @@index([usuarioId])
+}
+
+model Parametro {
+  id                          Int      @id @default(1)
+  aliquotaImpostoPercentual   Float    @default(0)
+  coeficienteDepreciacaoAnual Float    @default(20)
+  limiteDiasRetroativosLote   Int      @default(90)
+  atualizadoEm                DateTime @updatedAt
+  versao                      Int      @default(1)
+}

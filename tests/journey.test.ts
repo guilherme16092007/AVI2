@@ -2,17 +2,14 @@
  * tests/journey.test.ts
  *
  * Script de teste automatizado que simula uma jornada COMPLETA de
- * usuario do greencode, conforme exigido pelo enunciado: "um conjunto
- * de scripts de teste que simulam uma jornada completa de usuario,
- * desde o provisionamento inicial ate a consulta de rastreabilidade de
- * um equipamento especifico apos multiplas movimentacoes".
- *
+ * usuario do greencode".
+ * 
  * O script tambem exercita explicitamente os cenarios de FALHA listados
  * na documentacao de seguranca (docs/SEGURANCA.md e docs/TESTES.md):
  * CNPJ invalido, lote com data fora da janela permitida, desmonte sem
  * triagem previa, mudanca de estado fisico sem justificativa, login com
  * senha errada, comando fora do papel do usuario e sessao expirada.
- *
+ * 
  * Como este script cria seu proprio ambiente isolado (um diretorio
  * temporario), ele pode ser executado repetidamente sem interferir com
  * dados reais do sistema, e nao requer nenhuma dependencia externa
